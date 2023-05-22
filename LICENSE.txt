@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------------------------------------------------
-cc1101 Driver for RC Switch. Mod by Little Satan. With permission to modify and publish Wilson Shen (ELECHOUSE).
+cc2500 Driver. Wesley Smoyak [Feat. Little Satan and Wilson Shen (ELECHOUSE).]
 ----------------------------------------------------------------------------------------------------------------
 
 
