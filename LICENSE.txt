@@ -8,15 +8,15 @@ cc2500 Driver. Wesley Smoyak [Feat. Little Satan and Wilson Shen (ELECHOUSE).]
     Author: Michael, <www.elechouse.com>
     Version: November 12, 2010
 
-  This library is designed to use CC1101/CC1100 module on Arduino platform.
-  CC1101/CC1100 module is an useful wireless module.Using the functions of the 
-  library, you can easily send and receive data by the CC1101/CC1100 module. 
+  This library is designed to use CC2500 module on Arduino platform.
+  CC2500 module is an useful wireless module.Using the functions of the 
+  library, you can easily send and receive data by the CC2500 module. 
   Just have fun!
-  For the details, please refer to the datasheet of CC1100/CC1101.
+  For the details, please refer to the datasheet of CC2500.
 
 notes: 	The whole stuff that is not directly related to Rc_Switch,
-	NewRemoteSwitch or Elechouse_cc1101 Lib is Copyright (c) 2018 - 2020 by Little Satan.
-	Example calculator codes in the driver lib.
-	And so on...
+	NewRemoteSwitch or Elechouse_cc2500 Lib is Copyright (c) 2018 - 2020 by Little Satan.
+  Compatibility with CC2500 is Copyright (c) 2023 by WesDoesStuff
+  
 	You can freely use, edit or distribute it with reference to the source.
 	For everything else, the rights of the respective owners apply!
