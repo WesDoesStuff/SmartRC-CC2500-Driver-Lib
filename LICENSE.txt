@@ -15,8 +15,8 @@ cc2500 Driver. Wesley Smoyak [Feat. Little Satan and Wilson Shen (ELECHOUSE).]
   For the details, please refer to the datasheet of CC2500.
 
 notes: 	The whole stuff that is not directly related to Rc_Switch,
-	NewRemoteSwitch or Elechouse_cc2500 Lib is Copyright (c) 2018 - 2020 by Little Satan.
-  Compatibility with CC2500 is Copyright (c) 2023 by WesDoesStuff
+	NewRemoteSwitch or Elechouse_cc1101 Lib is Copyright (c) 2018 - 2020 by Little Satan.
+	Compatibility with CC2500 is Copyright (c) 2023 by WesDoesStuff
   
 	You can freely use, edit or distribute it with reference to the source.
 	For everything else, the rights of the respective owners apply!
