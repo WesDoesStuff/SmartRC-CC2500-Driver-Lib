@@ -103,17 +103,17 @@ Basically the same as the CC1101. Will add compatibility for CC2500 boards with 
 
 Notes: A logic level converter is recommended for arduino. It also works well without. Use at your own risk.
 
-<img src="https://github.com/LSatan/SmartRC-CC2500-Driver-Lib/blob/master/img/Nano_CC1101.png"/>
+<img src="https://github.com/WesDoesStuff/SmartRC-CC2500-Driver-Lib/blob/master/img/Nano_CC1101.png"/>
 
-<img src="https://github.com/LSatan/SmartRC-CC2500-Driver-Lib/blob/master/img/MEGA_CC1101.png"/>
+<img src="https://github.com/WesDoesStuff/SmartRC-CC2500-Driver-Lib/blob/master/img/MEGA_CC1101.png"/>
 
-<img src="https://github.com/LSatan/SmartRC-CC2500-Driver-Lib/blob/master/img/Esp8266_CC1101.png"/>
+<img src="https://github.com/WesDoesStuff/SmartRC-CC2500-Driver-Lib/blob/master/img/Esp8266_CC1101.png"/>
 
-<img src="https://github.com/LSatan/SmartRC-CC2500-Driver-Lib/blob/master/img/Esp32_CC1101.png"/>
+<img src="https://github.com/WesDoesStuff/SmartRC-CC2500-Driver-Lib/blob/master/img/Esp32_CC1101.png"/>
 
-<img src="https://github.com/LSatan/SmartRC-CC2500-Driver-Lib/blob/master/img/TXS0108E_CC1101.png"/>
+<img src="https://github.com/WesDoesStuff/SmartRC-CC2500-Driver-Lib/blob/master/img/TXS0108E_CC1101.png"/>
 
-<img src="https://github.com/LSatan/SmartRC-CC2500-Driver-Lib/blob/master/img/Wiring_CC1101.png"/>
+<img src="https://github.com/WesDoesStuff/SmartRC-CC2500-Driver-Lib/blob/master/img/Wiring_CC1101.png"/>
 
 ---------------------------------------------
 Donation
