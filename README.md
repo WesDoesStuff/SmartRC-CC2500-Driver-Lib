@@ -25,11 +25,11 @@ Can be downloaded directly from the Arduino library manager. Just search for CC2
 ---------------------------------------------
 Foreword:
 ---------------------------------------------
-  "
+  
+  
     First of all, thanks to Elechouse that I can make the modified library accessible to everyone.
 
     Link: http://www.elechouse.com/elechouse/
-
 
 
     The library has been redesigned and some improvements have been made.
@@ -39,7 +39,7 @@ Foreword:
     I would be happy to receive your suggestions for further examples from other libraries.
 
     All examples included are listed in the next field.
-  "
+  
   
 ---------------------------------------------
 Containing examples:
