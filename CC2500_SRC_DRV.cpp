@@ -18,6 +18,7 @@ cc2500 Driver. Wesley Smoyak [Feat. Little Satan and Wilson Shen (ELECHOUSE).]
 #include <SPI.h>
 #include "CC2500_SRC_DRV.h"
 #include <Arduino.h>
+#include <math.h>
 
 /****************************************************************/
 #define   WRITE_SINGLE      0x00
@@ -26,11 +27,6 @@ cc2500 Driver. Wesley Smoyak [Feat. Little Satan and Wilson Shen (ELECHOUSE).]
 #define   READ_BURST        0xC0            //read burst
 #define   READ_STATUS       0xC0
 
-/*
-#define   WRITE_BURST       0x40            //write burst
-#define   READ_SINGLE       0x80            //read single
-#define   READ_BURST        0xC0            //read burst
-*/
 #define   BYTES_IN_RXFIFO   0x7F            //byte number in RXfifo
 #define   max_modul 6
 
@@ -78,6 +74,8 @@ byte pc0CC2400_EN;
 byte pc0CRC_EN;
 byte pc0LenConf;
 byte trxstate = 0;
+float XOSC = 25.390625;
+float frequecy_band[2]{2400.000, 2483.500};
 byte clb1[2]= {24,28};
 byte clb2[2]= {31,38};
 byte clb3[2]= {65,76};
@@ -87,6 +85,7 @@ byte clb4[2]= {77,79};
 uint8_t PA_TABLE[8]     {0x00,0x46,0x55,0x97,0xA9,0xBB,0xFE,0xFF};
 //                       -55  -20  -16  -10   -4   -2    0   +1
 uint8_t PA_WRITE[8]     {0x00,0xFF,0x00,0x00,0x00,0x00,0x00,0x00};
+//                       -55  -20  -16  -10   -4   -2    0   +1
 /****************************************************************
 *FUNCTION NAME:SpiStart
 *FUNCTION     :spi communication start
@@ -139,7 +138,7 @@ void CC2500::GDO0_Set (void){
 }
 /****************************************************************
 *FUNCTION NAME:Reset
-*FUNCTION     :CC2500 reset //details refer datasheet of CC1101/CC1100//
+*FUNCTION     :CC2500 reset //details refer datasheet of CC2500
 *INPUT        :none
 *OUTPUT       :none
 ****************************************************************/
@@ -210,7 +209,7 @@ void CC2500::SpiWriteBurstReg(byte addr, byte *buffer, byte num){
 /****************************************************************
 *FUNCTION NAME:SpiStrobe
 *FUNCTION     :CC2500 Strobe
-*INPUT        :strobe: command; //refer define in CC1101.h//
+*INPUT        :strobe: command; //refer define in CC2500.h//
 *OUTPUT       :none
 ****************************************************************/
 void CC2500::SpiStrobe(byte strobe){
@@ -548,12 +547,14 @@ void CC2500::Calibrate(void){
   SpiStrobe(CC2500_SCAL); // manual calibration
   
 }
+
+/*
 /****************************************************************
-*FUNCTION NAME:Calibration offset
+*FUNCTION NAME:Calibration offset  (not used at the moment)
 *FUNCTION     :Set calibration offset
 *INPUT        :none
 *OUTPUT       :none
-****************************************************************/
+****************************************************************
 void CC2500::setClb(byte b, byte s, byte e){
   if (b == 1){
     clb1[0]=s;
@@ -569,6 +570,8 @@ void CC2500::setClb(byte b, byte s, byte e){
     clb4[1]=e;  
   }
 }
+*/
+
 /****************************************************************
 *FUNCTION NAME:getCC2500
 *FUNCTION     :Test Spi connection and return 1 when true.
@@ -638,7 +641,7 @@ void CC2500::setCRC_AF(bool v){
   if (v==1){
     pc1CRC_AF=8;
   }
-  SpiWriteReg(CC1101_PKTCTRL1, pc1PQT+pc1CRC_AF+pc1APP_ST+pc1ADRCHK);
+  SpiWriteReg(CC2500_PKTCTRL1, pc1PQT+pc1CRC_AF+pc1APP_ST+pc1ADRCHK);
 }
 /****************************************************************
 *FUNCTION NAME:Set APPEND_STATUS
@@ -928,8 +931,8 @@ void CC2500::setChsp(float f){
       f/=2;
     }
   }
-  SpiWriteReg(19,m1CHSP+m1FEC+m1PRE);
-  SpiWriteReg(20,MDMCFG0);
+  SpiWriteReg(CC2500_MDMCFG1, m1CHSP+m1FEC+m1PRE);
+  SpiWriteReg(CC2500_MDMCFG0, MDMCFG0);
 }
 /****************************************************************
 *FUNCTION NAME:Set Receive bandwidth
@@ -967,22 +970,33 @@ void CC2500::setRxBW(float f){
 *FUNCTION     :none
 *INPUT        :none
 *OUTPUT       :none
+*NOTE         :Data Rate  = (((256 + DRATE_M)*2^DRATE_E)/2^28)*XOSC
+                DRATE_E   = log2((DataRate * 2^20)/XOSC)
+                DRATE_M   = ((DataRate * 2^28)/(XOSC*2^DRATE_E))-256
+                DRATE_M   = ((DataRate * 2^28)/(XOSC*2^(log2((DataRate * 2^20)/XOSC))))-256
+                MIN       = 13/524.288
+                MAX       = 6642/4.096
+          Increment       = 13/134217.728
 ****************************************************************/
 void CC2500::setDRate(float d){
+  
   Split_MDMCFG4();
+  float max = 6642/4.096;     // Maximum Data Rate with 26MHz crystal
+  float min = 13/524.288;     // Minimum Data Rate with 26MHz crystal (this is also the increment value when you increase DRATE_E)
+  float inc = 13/134217.728;  // Smallest increment between Data Rates with 26MHz crystal
   float c = d;
   byte MDMCFG3 = 0;
-  if (c > 1621.83){
-    c = 1621.83;
+  if (c > max){
+    c = max;
   }
-  if (c < 0.0247955){
-    c = 0.0247955;
+  if (c < min){
+    c = min;
   }
   m4DaRa = 0;
   for (int i = 0; i<20; i++){
     if (c <= 0.0494942){
-      c = c - 0.0247955;
-      c = c / 0.00009685;
+      c = c - min;
+      c = c / inc;
       MDMCFG3 = c;
       float s1 = (c - MDMCFG3) *10;
       if (s1 >= 5){
@@ -994,25 +1008,32 @@ void CC2500::setDRate(float d){
       c = c/2;
     }
   }
-  SpiWriteReg(16,  m4RxBw+m4DaRa);
-  SpiWriteReg(17,  MDMCFG3);
+  SpiWriteReg(CC2500_MDMCFG4,  m4RxBw+m4DaRa);
+  SpiWriteReg(CC2500_MDMCFG3,  MDMCFG3);
 }
 /****************************************************************
 *FUNCTION NAME:Set Devitation
 *FUNCTION     :none
 *INPUT        :none
 *OUTPUT       :none
-****************************************************************/
+*NOTE         :Deviation    = (XOSC/(2^17))*(8 + DEVIATN_M)*2^DEVIATN_E
+                     MIN    =  13/8.192
+                     MAX    = 195/0.512
+               INCREMENT    =  13/65.336
+\****************************************************************/
 void CC2500::setDeviation(float d){
-  float f = 1.586914;
-  float v = 0.19836425;
+  
+  float m = 195/0.512;      // Maximum Deviation with 26MHz crystal
+  float f = 13/8.192;       // Minimum Deviation with 26MHz crystal (this is also the increment value when you increase DEVIATN_E)
+  float v = 13/65.336;      // Smallest increment between Deviations with 26MHz crystal
   int c = 0;
-  if (d > 380.859375){
-    d = 380.859375;
+  if (d > m){        
+    d = m;
   }
-  if (d < 1.586914){
-    d = 1.586914;
+  if (d < f){
+    d = f;
   }
+  
   for (int i = 0; i<255; i++){
     f+=v;
     if (c==7){
@@ -1026,10 +1047,10 @@ void CC2500::setDeviation(float d){
     }
   c++;
   }
-  SpiWriteReg(21,c);
+  SpiWriteReg(CC2500_DEVIATN,c);
 }
 /****************************************************************
-*FUNCTION NAME:Split PKTCTRL0
+*FUNCTION NAME:Split PKTCTRL1
 *FUNCTION     :none
 *INPUT        :none
 *OUTPUT       :none
@@ -1207,31 +1228,31 @@ void CC2500::Split_MDMCFG4(void){
 void CC2500::RegConfigSettings(void){   
     SpiWriteReg(CC2500_FSCTRL1,  0x0F);
     
-    setCCMode(ccmode);
+    //setCCMode(ccmode);
     setMHZ(MHz);
     
-    SpiWriteReg(CC1101_MDMCFG1,  0x02);
-    SpiWriteReg(CC1101_MDMCFG0,  0xF8);
-    SpiWriteReg(CC1101_CHANNR,   chan);
-    SpiWriteReg(CC1101_DEVIATN,  0x47);
-    SpiWriteReg(CC1101_FREND1,   0x56);
-    SpiWriteReg(CC1101_MCSM0 ,   0x14);
-    SpiWriteReg(CC1101_FOCCFG,   0x16);
-    SpiWriteReg(CC1101_BSCFG,    0x1C);
-    SpiWriteReg(CC1101_AGCCTRL2, 0xC7);
-    SpiWriteReg(CC1101_AGCCTRL1, 0x00);
-    SpiWriteReg(CC1101_AGCCTRL0, 0xB2);
-    SpiWriteReg(CC1101_FSCAL3,   0xE9);
-    SpiWriteReg(CC1101_FSCAL2,   0x2A);
-    SpiWriteReg(CC1101_FSCAL1,   0x00);
-    SpiWriteReg(CC1101_FSCAL0,   0x1F);
-    SpiWriteReg(CC1101_FSTEST,   0x59);
-    SpiWriteReg(CC1101_TEST2,    0x81);
-    SpiWriteReg(CC1101_TEST1,    0x35);
-    SpiWriteReg(CC1101_TEST0,    0x09);
-    SpiWriteReg(CC1101_PKTCTRL1, 0x04);
-    SpiWriteReg(CC1101_ADDR,     0x00);
-    SpiWriteReg(CC1101_PKTLEN,   0x00);
+    SpiWriteReg(CC2500_MDMCFG1,  0x03); //  defaulting to a channel spcing of 333 kHz so every 3 channels is ~1MHz, no FEC or preamble
+    SpiWriteReg(CC2500_MDMCFG0,  0xA4); //  setting for 333. default is 248 (0xF8). The default values give 199.951 kHz channel spacing (the closest setting to 200 kHz), assuming 26.0 MHz crystal frequency.
+    SpiWriteReg(CC2500_CHANNR,   chan); //  chan is set to 0. 
+    SpiWriteReg(CC2500_DEVIATN,  0x63); //  139.64 kHz deviation
+    SpiWriteReg(CC2500_FREND1,   0x56); //  Front End RX Configuration
+    SpiWriteReg(CC2500_MCSM0 ,   0x14); //  AUTO calibrate. po timeout 16 counts
+    SpiWriteReg(CC2500_FOCCFG,   0x36); //  Frequency Offset Compensation Configuration
+    SpiWriteReg(CC2500_BSCFG,    0x6C); //  Bit Synchronization Configuration
+    SpiWriteReg(CC2500_AGCCTRL2, 0x03); //  AGC Control
+    SpiWriteReg(CC2500_AGCCTRL1, 0x40); //  AGC Control
+    SpiWriteReg(CC2500_AGCCTRL0, 0x91); //  AGC Control
+    SpiWriteReg(CC2500_FSCAL3,   0xA9); //  Frequency Synthesizer Calibration
+    SpiWriteReg(CC2500_FSCAL2,   0x0A); //  Frequency Synthesizer Calibration
+    SpiWriteReg(CC2500_FSCAL1,   0x20); //  Frequency Synthesizer Calibration
+    SpiWriteReg(CC2500_FSCAL0,   0x0d); //  Frequency Synthesizer Calibration
+    //SpiWriteReg(CC2500_FSTEST,   0x59);
+    SpiWriteReg(CC2500_TEST2,    0x88); //  Set to 0x81 for improved sensitivity at data rates <= 100 kbaud
+    SpiWriteReg(CC2500_TEST1,    0x31); //  Set to 0x35 for improved sensitivity at data rates ≤100 kBaud.
+    SpiWriteReg(CC2500_TEST0,    0x0B);
+    SpiWriteReg(CC2500_PKTCTRL1, 0x04);
+    SpiWriteReg(CC2500_ADDR,     0x00);
+    SpiWriteReg(CC2500_PKTLEN,   0xFF);
 }
 /****************************************************************
 *FUNCTION NAME:SetTx
@@ -1286,11 +1307,14 @@ void CC2500::SetRx(float mhz){
 *OUTPUT       :none
 ****************************************************************/
 int CC2500::getRssi(void){
-int rssi;
-rssi=SpiReadStatus(CC2500_RSSI);
-if (rssi >= 128){rssi = (rssi-256)/2-74;}
-else{rssi = (rssi/2)-74;}
-return rssi;
+  int rssi;
+  rssi=SpiReadStatus(CC2500_RSSI);
+  if (rssi >= 128){
+    rssi = (rssi-256)/2-74;
+  }else{
+    rssi = (rssi/2)-74;
+  }
+  return rssi;
 }
 /****************************************************************
 *FUNCTION NAME:LQI Level
@@ -1305,7 +1329,7 @@ return lqi;
 }
 /****************************************************************
 *FUNCTION NAME:SetSres
-*FUNCTION     :Reset CC1101
+*FUNCTION     :Reset CC2500
 *INPUT        :none
 *OUTPUT       :none
 ****************************************************************/
@@ -1341,10 +1365,12 @@ void CC2500::goSleep(void){
 *OUTPUT       :none
 ****************************************************************/
 void CC2500::SendData(char *txchar){
-int len = strlen(txchar);
-byte chartobyte[len];
-for (int i = 0; i<len; i++){chartobyte[i] = txchar[i];}
-SendData(chartobyte,len);
+  int len = strlen(txchar);
+  byte chartobyte[len];
+  for (int i = 0; i<len; i++){
+    chartobyte[i] = txchar[i];
+  }
+  SendData(chartobyte,len);
 }
 /****************************************************************
 *FUNCTION NAME:SendData
@@ -1354,12 +1380,12 @@ SendData(chartobyte,len);
 ****************************************************************/
 void CC2500::SendData(byte *txBuffer,byte size){
   SpiWriteReg(CC2500_TXFIFO,size);
-  SpiWriteBurstReg(CC2500_TXFIFO,txBuffer,size);      //write data to send
+  SpiWriteBurstReg(CC2500_TXFIFO,txBuffer,size);   //write data to send
   SpiStrobe(CC2500_SIDLE);
-  SpiStrobe(CC2500_STX);                              //start send
-    while (!digitalRead(GDO0));                       // Wait for GDO0 to be set -> sync transmitted  
-    while (digitalRead(GDO0));                        // Wait for GDO0 to be cleared -> end of packet
-  SpiStrobe(CC2500_SFTX);                            //flush TXfifo
+  SpiStrobe(CC2500_STX);                           //start send
+  while (!digitalRead(GDO0));                      // Wait for GDO0 to be set -> sync transmitted  
+  while (digitalRead(GDO0));                       // Wait for GDO0 to be cleared -> end of packet
+  SpiStrobe(CC2500_SFTX);                          //flush TXfifo
   trxstate=1;
 }
 /****************************************************************
@@ -1369,10 +1395,12 @@ void CC2500::SendData(byte *txBuffer,byte size){
 *OUTPUT       :none
 ****************************************************************/
 void CC2500::SendData(char *txchar,int t){
-int len = strlen(txchar);
-byte chartobyte[len];
-for (int i = 0; i<len; i++){chartobyte[i] = txchar[i];}
-SendData(chartobyte,len,t);
+  int len = strlen(txchar);
+  byte chartobyte[len];
+  for (int i = 0; i<len; i++){
+    chartobyte[i] = txchar[i];
+  }
+  SendData(chartobyte,len,t);
 }
 /****************************************************************
 *FUNCTION NAME:SendData
@@ -1448,16 +1476,16 @@ byte CC2500::ReceiveData(byte *rxBuffer){
 	byte size;
 	byte status[2];
 
-	if(SpiReadStatus(CC1101_RXBYTES) & BYTES_IN_RXFIFO)	{
-		size=SpiReadReg(CC1101_RXFIFO);
-		SpiReadBurstReg(CC1101_RXFIFO,rxBuffer,size);
-		SpiReadBurstReg(CC1101_RXFIFO,status,2);
-		SpiStrobe(CC1101_SFRX);
-    SpiStrobe(CC1101_SRX);
+	if(SpiReadStatus(CC2500_RXBYTES) & BYTES_IN_RXFIFO)	{
+		size=SpiReadReg(CC2500_RXFIFO);
+		SpiReadBurstReg(CC2500_RXFIFO,rxBuffer,size);
+		SpiReadBurstReg(CC2500_RXFIFO,status,2);
+		SpiStrobe(CC2500_SFRX);
+    SpiStrobe(CC2500_SRX);
 		return size;
 	}else{
-		SpiStrobe(CC1101_SFRX);
-    SpiStrobe(CC1101_SRX);
+		SpiStrobe(CC2500_SFRX);
+    SpiStrobe(CC2500_SRX);
  		return 0;
 	}
 }
