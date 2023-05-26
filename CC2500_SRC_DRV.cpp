@@ -905,6 +905,9 @@ void CC2500::setChannel(byte ch){
 *FUNCTION     :none
 *INPUT        :none
 *OUTPUT       :none
+*NOTE         :carrier = (XOSC / 2^16) * ((FREQ + CHAN) * ((256 + CHANSPC_M) * 2^(CHANSPC_E-2))
+               MAX  = 405.456543 max channel spacing
+               MIN  = 25.390625 min channel spacing
 ****************************************************************/
 void CC2500::setChsp(float f){
   Split_MDMCFG1();
@@ -939,7 +942,37 @@ void CC2500::setChsp(float f){
 *FUNCTION     :none
 *INPUT        :none
 *OUTPUT       :none
+*NOTE         :BWchannel = XOSC/(8 * (4 + CHANBW_M)*2^CHANBW_E
+               MAX  = 13/.016 = 812.50 kHz
+               MIN  = 13/.224 =  58.03 kHz
+               BW Filters are limited to the following
+               812.500, 650.000, 541.667, 464.286,406.250,325.000,270.833,232.143,203.125, 162.500, 135.416, 116.071, 101.563,  81.250,  67.708,  58.036
+   Frequency   1625/2, 1625/2.5, 1625/3, 1625/3.5, 1625/4, 1625/5, 1625/6, 1625/7, 1625/8, 1625/10, 1625/12, 1625/14, 1625/16, 1625/20, 1625/24, 1625/28
+m4RxBw Value    0x00    0x10      0x20    0x30      0x40    0x50    0x60    0x70    0x80    0x90     0xA0     0xB0     0xC0     0xD0     0xE0     0xF0
+              The origial function is so elegant in it's aproximation that I almost hate to change it however, because the RX bandwidth can only be one of 16 values, 
+              when you set the bandwith, you were not getting the closest bandwith to what you had requested. This function is not as elegant and is probably less efficent however, 
+              it will get you a RX bandwidth closer to the one you requested. The array consists of the mid-point frequencies between the possible ones. There is also a pattern to 
+              the frequencies but I couln't figure out an easy way from A to B without going into polynomials. 
 ****************************************************************/
+void CC2500::setRxBW(float f){
+  int bw = (f*1000000);
+  Split_MDMCFG4();
+  byte em = 0;
+  int freq[16] = {731250000,595833000,502976000,435286000,365625000,297917000,251488000,217634000,182813000,148958000,125744000,108817000,91406000,74479000,62872000,0};
+  for(int i=0;i<16;i++){
+    if(bw>freq[i]){
+      break;
+    }else if(em >= 0xF0){
+      em = 0xF0;
+      break;
+    }else{
+      em+=0x10;
+    }
+  }
+  m4RxBw = em;
+  SpiWriteReg(CC2500_MDMCFG4, m4RxBw+m4DaRa);
+}
+/*  
 void CC2500::setRxBW(float f){
   Split_MDMCFG4();
   int s1 = 3;
@@ -965,6 +998,7 @@ void CC2500::setRxBW(float f){
   m4RxBw = s1 + s2;
   SpiWriteReg(16,m4RxBw+m4DaRa);
 }
+*/
 /****************************************************************
 *FUNCTION NAME:Set Data Rate
 *FUNCTION     :none
@@ -974,16 +1008,16 @@ void CC2500::setRxBW(float f){
                 DRATE_E   = log2((DataRate * 2^20)/XOSC)
                 DRATE_M   = ((DataRate * 2^28)/(XOSC*2^DRATE_E))-256
                 DRATE_M   = ((DataRate * 2^28)/(XOSC*2^(log2((DataRate * 2^20)/XOSC))))-256
-                MIN       = 13/524.288
-                MAX       = 6642/4.096
-          Increment       = 13/134217.728
+                MIN       = 13000/524288    ~   0.02479553
+                MAX       = 6642000/4096    ~1621.58203125
+          Increment       = 13000/134217728 ~   0.00009685754776000977
 ****************************************************************/
 void CC2500::setDRate(float d){
   
   Split_MDMCFG4();
-  float max = 6642/4.096;     // Maximum Data Rate with 26MHz crystal
-  float min = 13/524.288;     // Minimum Data Rate with 26MHz crystal (this is also the increment value when you increase DRATE_E)
-  float inc = 13/134217.728;  // Smallest increment between Data Rates with 26MHz crystal
+  float max = 1621.58203125;    // Maximum Data Rate with 26MHz crystal
+  float min = 0.02479553;       // Minimum Data Rate with 26MHz crystal (this is also the increment value when you increase DRATE_E)
+  float inc = 13000/134217728;  // Smallest increment between Data Rates with 26MHz crystal
   float c = d;
   byte MDMCFG3 = 0;
   if (c > max){
@@ -1017,15 +1051,15 @@ void CC2500::setDRate(float d){
 *INPUT        :none
 *OUTPUT       :none
 *NOTE         :Deviation    = (XOSC/(2^17))*(8 + DEVIATN_M)*2^DEVIATN_E
-                     MIN    =  13/8.192
-                     MAX    = 195/0.512
-               INCREMENT    =  13/65.336
+                     MIN    =  13000/8192   ~  1.5869140625
+                     MAX    = 195000/512    ~380.859375
+               INCREMENT    =  13000/65336  ~  0.1989714705522224
 \****************************************************************/
 void CC2500::setDeviation(float d){
   
-  float m = 195/0.512;      // Maximum Deviation with 26MHz crystal
-  float f = 13/8.192;       // Minimum Deviation with 26MHz crystal (this is also the increment value when you increase DEVIATN_E)
-  float v = 13/65.336;      // Smallest increment between Deviations with 26MHz crystal
+  float m = 195000/512;      // Maximum Deviation with 26MHz crystal
+  float f = 13000/8192;       // Minimum Deviation with 26MHz crystal (this is also the increment value when you increase DEVIATN_E)
+  float v = 13000/65336;      // Smallest increment between Deviations with 26MHz crystal
   int c = 0;
   if (d > m){        
     d = m;
