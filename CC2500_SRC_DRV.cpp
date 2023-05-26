@@ -85,7 +85,7 @@ byte clb4[2]= {77,79};
 uint8_t PA_TABLE[8]     {0x00,0x46,0x55,0x97,0xA9,0xBB,0xFE,0xFF};
 //                       -55  -20  -16  -10   -4   -2    0   +1
 uint8_t PA_WRITE[8]     {0x00,0xFF,0x00,0x00,0x00,0x00,0x00,0x00};
-//                       -55  -20  -16  -10   -4   -2    0   +1
+
 /****************************************************************
 *FUNCTION NAME:SpiStart
 *FUNCTION     :spi communication start
