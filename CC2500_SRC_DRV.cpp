@@ -74,7 +74,7 @@ byte pc0CC2400_EN;
 byte pc0CRC_EN;
 byte pc0LenConf;
 byte trxstate = 0;
-float XOSC = 25.390625;
+float XOSC = 26;
 float frequecy_band[2]{2400.000, 2483.500};
 byte clb1[2]= {24,28};
 byte clb2[2]= {31,38};
@@ -429,11 +429,23 @@ void CC2500::setModulation(byte m){
   modulation = m;
   Split_MDMCFG2();
   switch (m){
-    case 0: m2MODFM=0x02; frend0=0x10; break; // 2-FSK
-    case 1: m2MODFM=0x12; frend0=0x10; break; // GFSK
-    case 2: m2MODFM=0x32; frend0=0x11; break; // ASK/OOK
+    case 0:         // 2-FSK
+      m2MODFM=0x02;
+      frend0=0x10;
+      break;
+    case 1:         // GFSK
+      m2MODFM=0x12;
+      frend0=0x10;
+      break;
+    case 2:         // ASK/OOK
+      m2MODFM=0x32;
+      frend0=0x11;
+      break;
 //    case 3: m2MODFM=0x42; frend0=0x10; break; // 4-FSK (no 4-FSK for CC2500
-    case 3: m2MODFM=0x72; frend0=0x10; break; // MSK
+    case 3:         // MSK
+      m2MODFM=0x72;
+      frend0=0x10;
+      break;
   }
   SpiWriteReg(CC2500_MDMCFG2, m2DCOFF+m2MODFM+m2MANCH+m2SYNCM);
   SpiWriteReg(CC2500_FREND0,   frend0);
@@ -485,26 +497,31 @@ void CC2500::setPA(int p){
 *OUTPUT       :none
 ****************************************************************/
 void CC2500::setMHZ(float mhz){
-  byte freq2 = 0;
-  byte freq1 = 0;
-  byte freq0 = 0;
+  byte freq[3] = {0, 0, 0};
+  if(mhz < frequecy_band[0]){
+    mhz = frequecy_band[0];
+  }else if(mhz > frequecy_band[1]){
+    mhz = frequecy_band[1];
+  }
   MHz = mhz;
 
   // Calculate the frequency value for freq2
-  freq2 = static_cast<byte>(mhz / 26);
-  mhz -= freq2 * 26;
+  freq[2] = static_cast<byte>(mhz / 26);
+  mhz -= freq[2] * 26;
 
   // Calculate the frequency value for freq1
-  freq1 = static_cast<byte>(mhz / 0.1015625);
-  mhz -= freq1 * 0.1015625;
+  freq[1] = static_cast<byte>(mhz / 0.1015625);
+  mhz -= freq[1] * 0.1015625;
 
   // Calculate the frequency value for freq0
-  freq0 = static_cast<byte>(mhz / 0.00039675);
+  freq0 = static_cast<byte>(mhz / 0.000396469);
 
   // Adjust the frequency values if necessary
-  if (freq0 > 255) {
-    freq1 += 1;
-    freq0 -= 256;
+  for(int i=0;i<2;i++;){
+    if(freq[i] > 255){
+      freq[i+1] += 1;
+      freq[i] -= 256;
+    }
   }
 
 /*//this was the original function.
@@ -955,10 +972,10 @@ m4RxBw Value    0x00    0x10      0x20    0x30      0x40    0x50    0x60    0x70
               the frequencies but I couln't figure out an easy way from A to B without going into polynomials. 
 ****************************************************************/
 void CC2500::setRxBW(float f){
-  int bw = (f*1000000);
+  uint32_t bw = (f*1000000);
   Split_MDMCFG4();
   byte em = 0;
-  int freq[16] = {731250000,595833000,502976000,435286000,365625000,297917000,251488000,217634000,182813000,148958000,125744000,108817000,91406000,74479000,62872000,0};
+  uint32_t freq[16] = {731250000,595833000,502976000,435286000,365625000,297917000,251488000,217634000,182813000,148958000,125744000,108817000,91406000,74479000,62872000,0};
   for(int i=0;i<16;i++){
     if(bw>freq[i]){
       break;
