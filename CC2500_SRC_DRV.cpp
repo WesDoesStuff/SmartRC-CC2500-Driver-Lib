@@ -20,6 +20,11 @@ cc2500 Driver. Wesley Smoyak [Feat. Little Satan and Wilson Shen (ELECHOUSE).]
 #include <Arduino.h>
 #include <math.h>
 
+#ifdef CC2500_DEBUG
+
+
+#endif
+
 /****************************************************************/
 #define   WRITE_SINGLE      0x00
 #define   WRITE_BURST       0x40            //write burst
@@ -74,8 +79,9 @@ byte pc0CC2400_EN;
 byte pc0CRC_EN;
 byte pc0LenConf;
 byte trxstate = 0;
-float XOSC = 26;
-float frequecy_band[2]{2400.000, 2483.500};
+float XOSC = 26; // Crystal frequency in MHz
+float synthINC = (XOSC / 65536);  // XOSC / 2^16
+float frequency_band[2]{2400.000, 2483.500};
 byte clb1[2]= {24,28};
 byte clb2[2]= {31,38};
 byte clb3[2]= {65,76};
@@ -492,66 +498,82 @@ void CC2500::setPA(int p){
 }
 /****************************************************************
 *FUNCTION NAME:Frequency Calculator
-*FUNCTION     :Calculate the basic frequency.
+*FUNCTION     :Calculate the basic frequency. 
 *INPUT        :none
 *OUTPUT       :none
+*NOTE         :Frequency =  (XOSC/2^16) * FREQ[23:0]
+      (assuing 26MHz Crystal) 26/65536 = 13/32768
+               FREQ[23:0] = Frequency / (XOSC/2^16)
+
+              freq2 = FREQ[23:16]
+              freq1 = FREQ[15:8]
+              freq0 = FREQ[7:0]
+
 ****************************************************************/
 void CC2500::setMHZ(float mhz){
-  byte freq[3] = {0, 0, 0};
-  if(mhz < frequecy_band[0]){
-    mhz = frequecy_band[0];
-  }else if(mhz > frequecy_band[1]){
-    mhz = frequecy_band[1];
-  }
-  MHz = mhz;
-
-  // Calculate the frequency value for freq2
-  freq[2] = static_cast<byte>(mhz / 26);
-  mhz -= freq[2] * 26;
-
-  // Calculate the frequency value for freq1
-  freq[1] = static_cast<byte>(mhz / 0.1015625);
-  mhz -= freq[1] * 0.1015625;
-
-  // Calculate the frequency value for freq0
-  freq0 = static_cast<byte>(mhz / 0.000396469);
-
-  // Adjust the frequency values if necessary
-  for(int i=0;i<2;i++;){
-    if(freq[i] > 255){
-      freq[i+1] += 1;
-      freq[i] -= 256;
-    }
-  }
-
-/*//this was the original function.
-  for (bool i = 0; i==0;){
-    if (mhz >= 26){
-      mhz-=26;
-	  freq2+=1;
-    }else if (mhz >= 0.1015625){
-      mhz-=0.1015625;
-      freq1+=1;
-    }else if (mhz >= 0.00039675){
-      mhz-=0.00039675;
-      freq0+=1;
-    }else{
-      i=1;
-    }
+  uint8_t freq[3] = {0, 0, 0};
+  uint32_t freqWord;
+  float frequency = 0;
+  
+  if(mhz < frequency_band[0]){
+    mhz = frequency_band[0];
+  }else if(mhz > frequency_band[1]){
+    mhz = frequency_band[1];
   }
   
+  frequency = ((uint32)(mhz / synthINC))*synthINC;
+  MHz = frequency;
+  freqWord = round(frequency/synthINC);
   
-  if (freq0 > 255){
-    freq1+=1;
-    freq0-=256;
+  freq[2] =  (freqWord >> 16) & 0xff;
+  freq[1] =  (freqWord >> 8) & 0xff;
+  freq[0] =   freqWord & 0xff;
+  
+  #ifdef CC2500_DEBUG
+  Serial.print("Requested:\t");
+  Serial.print(mhz, 6);
+  Serial.print(" MHz\nActual:\t");
+  Serial.print(frequency, 6);
+  Serial.println(" MHz");
+  
+  for(int i=0;i<3;i++){
+    Serial.print("freq");
+    Serial.print(i);
+    Serial.print(":\t");
+    Serial.println(freq[i], HEX);
   }
-*/
   
-  SpiWriteReg(CC2500_FREQ2, freq2);
-  SpiWriteReg(CC2500_FREQ1, freq1);
-  SpiWriteReg(CC2500_FREQ0, freq0);
+  #endif
+  
+  SpiWriteReg(CC2500_FREQ2, freq[2]);
+  SpiWriteReg(CC2500_FREQ1, freq[1]);
+  SpiWriteReg(CC2500_FREQ0, freq[0]);
   
   Calibrate();
+}
+/****************************************************************
+*FUNCTION NAME:Set Frequency Band
+*FUNCTION     :Allows you to set a spacific band o frequencies within the supported range. Default is 2400 – 2483.5 MHz
+*INPUT        :none
+*OUTPUT       :none
+*NOTE         :Sets the frequency to the lowest of the new band.
+****************************************************************/
+void CC2500::setBand(float mhz_l, float mhz_h){
+  
+  byte freq[3] = {0, 0, 0};
+  if(mhz_l < 2400.000 || mhz_l > 2483.500){
+    frequency_band[0] = 2400.000;
+  }else{
+    frequency_band[0] = mhz_l;
+  }
+  if(mhz_h < 2400.000 || mhz_h > 2483.500){
+    frequency_band[1] = 2483.500;
+  }else{
+    frequency_band[1] = mhz_h;
+  }
+  
+  setMHZ(mhz_l);
+  
 }
 /****************************************************************
 *FUNCTION NAME:Calibrate
